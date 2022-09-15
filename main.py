@@ -20,6 +20,13 @@ database = databases.Database(DATABASE_URL)
 
 metadata = sqlalchemy.MetaData()
 
+
+class UserRole(enum.Enum):
+    super_admin = "super admin"
+    admin = "admin"
+    user = "user"
+
+
 users = sqlalchemy.Table(
     "users",
     metadata,
@@ -36,6 +43,7 @@ users = sqlalchemy.Table(
         server_default=sqlalchemy.func.now(),
         onupdate=sqlalchemy.func.now(),
     ),
+    sqlalchemy.Column("role", sqlalchemy.Enum(UserRole), nullable=False, server_default=UserRole.user.name)
 )
 
 
@@ -119,6 +127,7 @@ app = FastAPI()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+# logic for jwt authentication
 class CustomHTTPBearer(HTTPBearer):
     async def __call__(
             self, request: Request
