@@ -148,6 +148,12 @@ class CustomHTTPBearer(HTTPBearer):
 oauth2_scheme = CustomHTTPBearer()
 
 
+def is_admin(request: Request):
+    user = request.state.user
+    if not user or user["role"] not in (UserRole.admin, UserRole.super_admin):
+        raise HTTPException(403, "You do not have permission for this resource")
+
+
 def create_access_token(user):
     """
     Create an access token for the given user.
@@ -169,6 +175,18 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
+
+
+class ClothesBase(BaseUser):
+    name: str
+    color: str
+    size: SizeEnum
+    color: ColorEnum
+
+
+# Endpoint for creating clothes
+# @app.post("/clothes/", dependencies=[Depends(oauth2_scheme), Depends(is_admin)])
+# async def create_clothes(request: Request):
 
 
 # Endpoint to fetch all clothes
