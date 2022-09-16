@@ -177,16 +177,47 @@ async def shutdown():
     await database.disconnect()
 
 
-class ClothesBase(BaseUser):
+class ClothesBase(BaseModel):
     name: str
     color: str
     size: SizeEnum
     color: ColorEnum
 
 
-# Endpoint for creating clothes
-# @app.post("/clothes/", dependencies=[Depends(oauth2_scheme), Depends(is_admin)])
-# async def create_clothes(request: Request):
+class ClothesIn(ClothesBase):
+    pass
+
+
+# A class to shape the response we get.
+class ClothesOut(ClothesBase):
+    id: int
+    created_at: datetime
+    last_modified_at: datetime
+
+
+# Endpoint for creating clothes. The ** means to unpack the dictionary
+@app.post("/clothes/",
+          response_model=ClothesOut,
+          dependencies=[Depends(oauth2_scheme),
+                        Depends(is_admin)],
+          status_code=201
+          )
+async def create_clothes(clothes_data: ClothesIn):
+    id_ = await database.execute(clothes.insert().values(**clothes_data.dict()))
+    return await database.fetch_one(clothes.select().where(clothes.c.id == id_))
+
+
+# endpoint for users sign in
+@app.post("/register/", status_code=201)
+async def create_user(user: UserSignIn):  # validate type of data before entering function
+    user.password = pwd_context.hash(user.password)
+    # Insert values into users table. user is an object. So converting to dict.
+    q = users.insert().values(**user.dict())  # The ** means unpacking the dict
+    # Last thing is to execute the query above
+    id_ = await database.execute(q)
+    created_user = await database.fetch_one(users.select().where(users.c.id == id_))
+    token = create_access_token(created_user)
+    return {"token": token}
 
 
 # Endpoint to fetch all clothes
@@ -196,16 +227,3 @@ async def get_all_clothes():
     Get all clothes.
     """
     return await database.fetch_all(clothes.select())
-
-
-# endpoint for users sign in
-@app.post("/register/")
-async def create_user(user: UserSignIn):  # validate type of data before entering function
-    user.password = pwd_context.hash(user.password)
-    # Insert values into users table
-    q = users.insert().values(**user.dict())  # user is an object. So converting to dict. The ** means kwargs?
-    # Last thing is to execute the query above
-    id_ = await database.execute(q)
-    created_user = await database.fetch_one(users.select().where(users.c.id == id_))
-    token = create_access_token(created_user)
-    return {"token": token}
